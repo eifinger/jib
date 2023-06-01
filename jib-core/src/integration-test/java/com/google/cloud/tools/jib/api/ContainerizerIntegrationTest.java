@@ -19,6 +19,7 @@ package com.google.cloud.tools.jib.api;
 import com.google.cloud.tools.jib.Command;
 import com.google.cloud.tools.jib.api.buildplan.AbsoluteUnixPath;
 import com.google.cloud.tools.jib.api.buildplan.FileEntriesLayer;
+import com.google.cloud.tools.jib.api.buildplan.Platform;
 import com.google.cloud.tools.jib.event.events.ProgressEvent;
 import com.google.cloud.tools.jib.event.progress.ProgressEventHandler;
 import com.google.cloud.tools.jib.global.JibSystemProperties;
@@ -26,6 +27,7 @@ import com.google.cloud.tools.jib.registry.LocalRegistry;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -35,6 +37,8 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 import org.hamcrest.CoreMatchers;
@@ -229,6 +233,31 @@ public class ContainerizerIntegrationTest {
   }
 
   @Test
+  public void testSteps_forBuildToDockerRegistry_multiplePlatforms()
+          throws IOException, InterruptedException, ExecutionException, RegistryException,
+          CacheDirectoryCreationException, InvalidImageReferenceException {
+    buildImage(
+            ImageReference.of("gcr.io", "distroless/java", DISTROLESS_DIGEST),
+            Containerizer.to(RegistryImage.named(dockerHost + ":5000/testimage:testtag")),
+            Collections.singletonList("testtag"),
+            ImmutableSet.of(new Platform("amd64","linux"), new Platform("arm64","linux"))
+    );
+
+    String imageReference = dockerHost + ":5000/testimage:testtag-amd64";
+    localRegistry.pull(imageReference);
+    assertDockerInspect(imageReference);
+    Assert.assertEquals(
+            "Hello, world. An argument.\n", new Command("docker", "run", "--rm", imageReference).run());
+
+    String imageReference2 = dockerHost + ":5000/testimage:testtag-arm64";
+    localRegistry.pull(imageReference2);
+    assertDockerInspect(imageReference2);
+    Assert.assertEquals(
+            "Hello, world. An argument.\n",
+            new Command("docker", "run", "--rm", imageReference2).run());
+  }
+
+  @Test
   public void testSteps_forBuildToDockerRegistry_skipExistingDigest()
       throws IOException, InterruptedException, ExecutionException, RegistryException,
           CacheDirectoryCreationException, InvalidImageReferenceException {
@@ -333,7 +362,14 @@ public class ContainerizerIntegrationTest {
   }
 
   private JibContainer buildImage(
-      ImageReference baseImage, Containerizer containerizer, List<String> additionalTags)
+          ImageReference baseImage, Containerizer containerizer, List<String> additionalTags)
+          throws IOException, InterruptedException, RegistryException, CacheDirectoryCreationException,
+          ExecutionException {
+    return buildImage(baseImage, containerizer, additionalTags, null);
+  }
+
+  private JibContainer buildImage(
+          ImageReference baseImage, Containerizer containerizer, List<String> additionalTags, Set<Platform> additionalPlatforms)
       throws IOException, InterruptedException, RegistryException, CacheDirectoryCreationException,
           ExecutionException {
     JibContainerBuilder containerBuilder =
@@ -346,6 +382,9 @@ public class ContainerizerIntegrationTest {
             .setExposedPorts(Ports.parse(Arrays.asList("1000", "2000-2002/tcp", "3000/udp")))
             .setLabels(ImmutableMap.of("key1", "value1", "key2", "value2"))
             .setFileEntriesLayers(fakeLayerConfigurations);
+    if (Objects.nonNull(additionalPlatforms)) {
+      containerBuilder.setPlatforms(additionalPlatforms);
+    }
 
     containerizer
         .setAllowInsecureRegistries(true)
