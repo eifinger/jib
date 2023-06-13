@@ -234,27 +234,26 @@ public class ContainerizerIntegrationTest {
 
   @Test
   public void testSteps_forBuildToDockerRegistry_multiplePlatforms()
-          throws IOException, InterruptedException, ExecutionException, RegistryException,
+      throws IOException, InterruptedException, ExecutionException, RegistryException,
           CacheDirectoryCreationException, InvalidImageReferenceException {
     buildImage(
-            ImageReference.of("gcr.io", "distroless/java", DISTROLESS_DIGEST),
-            Containerizer.to(RegistryImage.named(dockerHost + ":5000/testimage:testtag")),
-            Collections.singletonList("testtag"),
-            ImmutableSet.of(new Platform("amd64","linux"), new Platform("arm64","linux"))
-    );
+        ImageReference.of("gcr.io", "distroless/java", DISTROLESS_DIGEST),
+        Containerizer.to(RegistryImage.named(dockerHost + ":5000/testimage:testtag")),
+        Collections.singletonList("testtag"),
+        ImmutableSet.of(new Platform("amd64", "linux"), new Platform("arm64", "linux")));
 
     String imageReference = dockerHost + ":5000/testimage:testtag-amd64";
     localRegistry.pull(imageReference);
     assertDockerInspect(imageReference);
     Assert.assertEquals(
-            "Hello, world. An argument.\n", new Command("docker", "run", "--rm", imageReference).run());
+        "Hello, world. An argument.\n", new Command("docker", "run", "--rm", imageReference).run());
 
     String imageReference2 = dockerHost + ":5000/testimage:testtag-arm64";
     localRegistry.pull(imageReference2);
     assertDockerInspect(imageReference2);
     Assert.assertEquals(
-            "Hello, world. An argument.\n",
-            new Command("docker", "run", "--rm", imageReference2).run());
+        "Hello, world. An argument.\n",
+        new Command("docker", "run", "--rm", imageReference2).run());
   }
 
   @Test
@@ -362,14 +361,17 @@ public class ContainerizerIntegrationTest {
   }
 
   private JibContainer buildImage(
-          ImageReference baseImage, Containerizer containerizer, List<String> additionalTags)
-          throws IOException, InterruptedException, RegistryException, CacheDirectoryCreationException,
+      ImageReference baseImage, Containerizer containerizer, List<String> additionalTags)
+      throws IOException, InterruptedException, RegistryException, CacheDirectoryCreationException,
           ExecutionException {
     return buildImage(baseImage, containerizer, additionalTags, null);
   }
 
   private JibContainer buildImage(
-          ImageReference baseImage, Containerizer containerizer, List<String> additionalTags, Set<Platform> additionalPlatforms)
+      ImageReference baseImage,
+      Containerizer containerizer,
+      List<String> additionalTags,
+      Set<Platform> additionalPlatforms)
       throws IOException, InterruptedException, RegistryException, CacheDirectoryCreationException,
           ExecutionException {
     JibContainerBuilder containerBuilder =
