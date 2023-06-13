@@ -35,4 +35,4 @@ jobs:
             ${{ runner.os }}-gradle-
       - name: Run tests
         run: |
-          ./gradlew clean build jacocoTestReport --stacktrace
+          ./gradlew clean build jacocoTestReport --stacktrace --debug
